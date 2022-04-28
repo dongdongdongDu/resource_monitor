@@ -8,14 +8,16 @@ import (
 )
 
 type DiskInfo struct {
-	Path        string  `json:"path"`
+	Device      string  `json:"device"`
 	Total       string  `json:"total"`
 	Free        string  `json:"free"`
 	Used        string  `json:"used"`
 	UsedPercent float64 `json:"usedPercent"`
+	Mountpoint  string  `json:"mountpoint"`
 }
 
 func FormatCap(x uint64) (cap string) {
+
 	m := float64(x / 1024 / 1024)
 	g := m / 1024
 	g, _ = strconv.ParseFloat(fmt.Sprintf("%.1f", g), 64)
@@ -31,21 +33,25 @@ func GetDiskInfo() (DiskInfos []DiskInfo) {
 	var diskinfo DiskInfo
 	diskstat, _ := disk.Partitions(true)
 	for _, stat := range diskstat {
-		mapStat, _ := disk.Usage(stat.Device)
-		diskinfo.Path = mapStat.Path
-		diskinfo.Total = FormatCap(mapStat.Total)
-		diskinfo.Used = FormatCap(mapStat.Used)
-		diskinfo.Free = FormatCap(mapStat.Free)
-		diskinfo.UsedPercent = math.Round(mapStat.UsedPercent)
-		DiskInfos = append(DiskInfos, diskinfo)
+		device := stat.Device
+		mapStat, _ := disk.Usage(stat.Mountpoint)
+		if mapStat != nil && mapStat.Total != 0 {
+			diskinfo.Device = device
+			diskinfo.Total = FormatCap(mapStat.Total)
+			diskinfo.Used = FormatCap(mapStat.Used)
+			diskinfo.Free = FormatCap(mapStat.Free)
+			diskinfo.UsedPercent = math.Round(mapStat.UsedPercent)
+			diskinfo.Mountpoint = mapStat.Path
+			DiskInfos = append(DiskInfos, diskinfo)
+		}
 	}
 	return
 }
 
 func UpdateDiskInfo(diskInfos []DiskInfo) []DiskInfo {
-	diskstat, _ := disk.Partitions(true)
+	diskstat, _ := disk.Partitions(false)
 	for _, stat := range diskstat {
-		mapStat, _ := disk.Usage(stat.Device)
+		mapStat, _ := disk.Usage(stat.Mountpoint)
 		for i := 0; i < len(diskInfos); i++ {
 			diskInfos[i].Used = FormatCap(mapStat.Used)
 			diskInfos[i].Free = FormatCap(mapStat.Free)
